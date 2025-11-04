@@ -1,0 +1,10 @@
+metadata:
+  name: "Ensure S3 bucket versioning and encryption"
+  id: "CUSTOM_S3_001"
+  category: "Encryption"
+definition:
+  cond_type: "attribute"
+  resource_types: ["aws_s3_bucket"]
+  attribute: "versioning"
+  operator: "equals"
+  value: "Enabled"
