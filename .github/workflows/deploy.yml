@@ -1,0 +1,73 @@
+name: Compliance-as-Code — Deploy
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - terraform/**
+      - policy/**
+      - .github/workflows/deploy.yml
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write    # for OIDC
+      contents: read
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/GithubActionsDeployRole
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Terraform Init/Plan/Apply
+        working-directory: terraform
+        run: |
+          terraform init -input=false -upgrade
+          terraform validate
+          terraform plan -input=false -out plan.out
+          terraform apply -input=false -auto-approve plan.out
+          terraform show -json plan.out > ../reports/plan.json
+
+      - name: Install Policy Tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install checkov
+          curl -L https://github.com/open-policy-agent/conftest/releases/download/v0.63.0/conftest_0.63.0_Linux_x86_64.tar.gz | tar xz
+          sudo mv conftest /usr/local/bin/conftest
+
+      - name: Scan & Report
+        run: |
+          mkdir -p reports
+          checkov -f reports/plan.json -o json --compact > reports/checkov.json || true
+          checkov -f reports/plan.json -o cli | tee reports/checkov_cli.txt || true
+          conftest test reports/plan.json --policy policy/conftest | tee reports/conftest.txt || true
+          {
+            echo "# Compliance Report (CI)"
+            echo
+            echo "## Checkov Summary"
+            ( jq -r '.summary | "Passed: \(.passed), Failed: \(.failed), Skipped: \(.skipped), ParsingErrors: \(.parsing_errors)"' reports/checkov.json \
+              || echo "_No JSON output_" )
+            echo
+            echo "## Conftest Findings"
+            echo '```'
+            ( test -f reports/conftest.txt && cat reports/conftest.txt ) || echo "No OPA findings"
+            echo '```'
+          } > reports/compliance_report.md
+
+      - name: Upload Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-reports
+          path: reports/
+          if-no-files-found: warn
