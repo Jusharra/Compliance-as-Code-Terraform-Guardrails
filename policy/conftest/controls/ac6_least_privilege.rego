@@ -1,15 +1,26 @@
-package controls.ac6
+package main
 
-import data.tfplan
+# Fail if any IAM policy allows Action:"*" or Resource:"*"
+deny[msg] {
+  rc := resource_changes_by_type("aws_iam_policy")[_]
+  pol := after(rc)
+  pol.policy != null
+  parsed := json.unmarshal(pol.policy)
+  stmt := parsed.Statement[_]
+  stmt.Effect == "Allow"
+  stmt.Action == "*"
+  msg := sprintf("AC-6: IAM policy %q allows Action \"*\"", [pol.name])
+}
 
 deny[msg] {
-  some r
-  tfplan.is_resource_type(r, "aws_iam_policy")
-  r.change.after.policy != ""
-  policy := json.unmarshal(r.change.after.policy)
-  some i
-  actions := policy.Statement[i].Action
-  actions == "*"
-  msg := sprintf("AC-6: Policy %v uses Action:* (least privilege violated)", [r.address])
+  rc := resource_changes_by_type("aws_iam_policy")[_]
+  pol := after(rc)
+  pol.policy != null
+  parsed := json.unmarshal(pol.policy)
+  stmt := parsed.Statement[_]
+  stmt.Effect == "Allow"
+  stmt.Resource == "*"
+  msg := sprintf("AC-6: IAM policy %q allows Resource \"*\"", [pol.name])
 }
+
 

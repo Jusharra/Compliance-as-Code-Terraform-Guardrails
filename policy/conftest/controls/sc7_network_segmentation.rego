@@ -1,18 +1,22 @@
-package controls.sc7
+package main
 
-import data.tfplan
-
-default deny = []
-
+# Disallow SG ingress from 0.0.0.0/0 to sensitive ports (22, 3389) or all ports
 deny[msg] {
-  some r
-  tfplan.is_resource_type(r, "aws_security_group_rule")
-  after := r.change.after
-  after.type == "ingress"
-  after.cidr_blocks[_] == "0.0.0.0/0"
-  # flag common admin ports
-  after.from_port <= 22
-  after.to_port >= 22
-  msg := sprintf("SC-7: Ingress 0.0.0.0/0 on port 22 for %v", [r.address])
+  rc := resource_changes_by_type("aws_security_group")[_]
+  sg := after(rc)
+  ing := sg.ingress[_]
+
+  # any source open to world
+  (ing.cidr_blocks[_] == "0.0.0.0/0") or (ing.ipv6_cidr_blocks[_] == "::/0")
+
+  # sensitive ports or all (-1) / wide range
+  open_ssh := ing.from_port <= 22; ing.to_port >= 22; ing.protocol == "tcp"
+  open_rdp := ing.from_port <= 3389; ing.to_port >= 3389; ing.protocol == "tcp"
+  open_all := ing.protocol == "-1"
+
+  (open_ssh or open_rdp or open_all)
+
+  msg := sprintf("SC-7: Security Group %q has broad ingress from the internet (rule may allow SSH/RDP/all).", [sg.name])
 }
+
 

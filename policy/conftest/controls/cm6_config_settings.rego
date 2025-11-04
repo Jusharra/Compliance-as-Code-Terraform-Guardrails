@@ -1,14 +1,28 @@
-package controls.cm6
+package main
 
-import data.tfplan
+# S3 buckets must have Public Access Block
+deny[msg] {
+  rc := resource_changes_by_type("aws_s3_bucket_public_access_block")[_]
+  pab := after(rc)
 
-required := {"Owner","Environment","System"}
+  not pab.block_public_acls
+  msg := sprintf("CM-6: S3 bucket %q public access block: block_public_acls=false.", [pab.bucket])
+}
 
 deny[msg] {
-  some r
-  tags := r.change.after.tags
-  required[k]
-  not tags[required[k]]
-  msg := sprintf("CM-6: Missing required tag %v on %v", [required[k], r.address])
+  rc := resource_changes_by_type("aws_s3_bucket_public_access_block")[_]
+  pab := after(rc)
+
+  not pab.block_public_policy
+  msg := sprintf("CM-6: S3 bucket %q public access block: block_public_policy=false.", [pab.bucket])
 }
+
+deny[msg] {
+  rc := resource_changes_by_type("aws_s3_bucket_versioning")[_]
+  ver := after(rc)
+
+  ver.versioning_configuration.status != "Enabled"
+  msg := sprintf("CM-6: S3 bucket %q versioning not Enabled.", [ver.bucket])
+}
+
 
