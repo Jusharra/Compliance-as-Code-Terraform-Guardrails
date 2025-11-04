@@ -1,4 +1,4 @@
-name: Project 04 — Deploy
+name: Compliance-as-Code — Deploy
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
       - name: Configure AWS via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::281517525855:role/GithubActionsDeployRole
+          role-to-assume: arn:aws:iam::281517525855:role/soc2-agent-LambdaRole-SaT6icEYluF9
           aws-region: us-east-1
 
       - name: Setup Terraform
