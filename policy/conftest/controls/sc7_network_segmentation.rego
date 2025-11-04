@@ -1,46 +1,80 @@
 package main
 
-# Sensitive ingress if:
-#  - protocol all (-1), or
-#  - TCP 22 (SSH), or
-#  - TCP 3389 (RDP)
+############################
+# Helpers
+############################
 
+# Is this ingress "sensitive"? (all protocols, or SSH/RDP on TCP)
 sensitive_ingress(ing) if {
   ing.protocol == "-1"
 }
-
 sensitive_ingress(ing) if {
   ing.protocol == "tcp"
+  is_number(ing.from_port)
+  is_number(ing.to_port)
   ing.from_port <= 22
   ing.to_port >= 22
 }
-
 sensitive_ingress(ing) if {
   ing.protocol == "tcp"
+  is_number(ing.from_port)
+  is_number(ing.to_port)
   ing.from_port <= 3389
   ing.to_port >= 3389
 }
 
-# Deny if any ingress is from the internet (IPv4) to sensitive ports/all
-deny contains msg if {
-  rc := resource_changes_by_type["aws_security_group"][_]
-  sg := after(rc)
-  ing := sg.ingress[_]
-
+# Public IPv4?
+public_ipv4(ing) if {
+  ing.cidr_blocks
   ing.cidr_blocks[_] == "0.0.0.0/0"
-  sensitive_ingress(ing)
-
-  msg := sprintf("SC-7: Security Group %q has broad IPv4 ingress from the internet (SSH/RDP/all).", [sg.name])
 }
 
-# Deny if any ingress is from the internet (IPv6) to sensitive ports/all
+# Public IPv6?
+public_ipv6(ing) if {
+  ing.ipv6_cidr_blocks
+  ing.ipv6_cidr_blocks[_] == "::/0"
+}
+
+############################
+# Inline ingress on aws_security_group
+############################
+
 deny contains msg if {
-  rc := resource_changes_by_type["aws_security_group"][_]
+  rc := resource_changes_by_type("aws_security_group")[_]
   sg := after(rc)
+  sg.ingress                       # guard: has inline rules
   ing := sg.ingress[_]
 
-  ing.ipv6_cidr_blocks[_] == "::/0"
   sensitive_ingress(ing)
+  ( public_ipv4(ing) or public_ipv6(ing) )
 
-  msg := sprintf("SC-7: Security Group %q has broad IPv6 ingress from the internet (SSH/RDP/all).", [sg.name])
+  name := sg.name
+  msg := sprintf("SC-7: Security Group %q has public ingress (SSH/RDP/all).", [name])
+}
+
+############################
+# Standalone aws_security_group_rule (type = ingress)
+############################
+
+# Treat a rule object with same shape as 'ing' in helpers
+deny contains msg if {
+  rc := resource_changes_by_type("aws_security_group_rule")[_]
+  r := after(rc)
+  r.type == "ingress"
+
+  # Build a pseudo-ing object for helpers
+  ing := {
+    "protocol": r.protocol,
+    "from_port": r.from_port,
+    "to_port": r.to_port,
+    "cidr_blocks": r.cidr_blocks,
+    "ipv6_cidr_blocks": r.ipv6_cidr_blocks
+  }
+
+  sensitive_ingress(ing)
+  ( public_ipv4(ing) or public_ipv6(ing) )
+
+  # Best-effort name/context
+  id := r.security_group_id
+  msg := sprintf("SC-7: Security Group (id: %v) has public ingress rule (SSH/RDP/all).", [id])
 }

@@ -2,7 +2,7 @@ package main
 
 # Disallow IAM policies that allow Action:"*"
 deny contains msg if {
-  rc := resource_changes_by_type["aws_iam_policy"][_]
+  rc := resource_changes_by_type("aws_iam_policy")[_]
   pol := after(rc)
   pol.policy != null
   parsed := json.unmarshal(pol.policy)
@@ -14,7 +14,7 @@ deny contains msg if {
 
 # Disallow IAM policies that allow Resource:"*"
 deny contains msg if {
-  rc := resource_changes_by_type["aws_iam_policy"][_]
+  rc := resource_changes_by_type("aws_iam_policy")[_]
   pol := after(rc)
   pol.policy != null
   parsed := json.unmarshal(pol.policy)
