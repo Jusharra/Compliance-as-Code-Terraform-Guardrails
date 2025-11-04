@@ -1,6 +1,14 @@
-package controls.cm6_config_settings
+package controls.cm6
+
+import data.tfplan
+
+required := {"Owner","Environment","System"}
 
 deny[msg] {
-  input.resource_type == "aws_iam_policy"
-  msg := "Policy cm6_config_settings not satisfied"
+  some r
+  tags := r.change.after.tags
+  required[k]
+  not tags[required[k]]
+  msg := sprintf("CM-6: Missing required tag %v on %v", [required[k], r.address])
 }
+

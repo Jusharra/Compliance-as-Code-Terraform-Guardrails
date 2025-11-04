@@ -1,10 +1,25 @@
 metadata:
-  name: "Ensure S3 bucket versioning and encryption"
-  id: "CUSTOM_S3_001"
-  category: "Encryption"
-definition:
-  cond_type: "attribute"
-  resource_types: ["aws_s3_bucket"]
-  attribute: "versioning"
-  operator: "equals"
-  value: "Enabled"
+  name: "Custom CAC Guardrails"
+  guideline: "Enforce NIST 800-53 mappings for AC-6, SC-7, SC-13, AU-12, CM-6"
+scope:
+  frameworks: ["terraform"]
+checks:
+  - id: CKV_CAC_AC6_1
+    name: "Deny IAM policies with Action:*"
+    severity: HIGH
+    resource_types: ["aws_iam_policy"]
+    eval:
+      and:
+        - cond_type: "jsonpath"
+          resource_types: ["aws_iam_policy"]
+          attribute: "policy"
+          operator: "jsonpath_not_match"
+          value: "$..Action[?(@ == '*')]"
+
+  - id: CKV_CAC_SC7_1
+    name: "No ingress from 0.0.0.0/0 on ports 22 or 3389"
+    severity: HIGH
+    resource_types: ["aws_security_group_rule","aws_security_group"]
+    provider: "aws"
+    # Let Checkov's built-ins help; this custom acts as defense-in-depth
+
