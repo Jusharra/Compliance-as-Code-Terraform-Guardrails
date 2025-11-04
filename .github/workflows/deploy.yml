@@ -1,4 +1,4 @@
-name: Compliance-as-Code — Deploy
+name: Project 04 — Deploy
 
 on:
   push:
@@ -13,16 +13,20 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write    # for OIDC
+      id-token: write
       contents: read
-    environment: prod
+    environment: production
+    defaults:
+      run:
+        working-directory: terraform
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure AWS via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::123456789012:role/GithubActionsDeployRole
+          role-to-assume: arn:aws:iam::281517525855:role/GithubActionsDeployRole
           aws-region: us-east-1
 
       - name: Setup Terraform
@@ -30,9 +34,9 @@ jobs:
         with:
           terraform_version: 1.9.8
 
-      - name: Terraform Init/Plan/Apply
-        working-directory: terraform
+      - name: Terraform Init/Plan/Apply (export plan.json to reports/)
         run: |
+          mkdir -p ../reports
           terraform init -input=false -upgrade
           terraform validate
           terraform plan -input=false -out plan.out
@@ -40,20 +44,22 @@ jobs:
           terraform show -json plan.out > ../reports/plan.json
 
       - name: Install Policy Tools
+        working-directory: .
         run: |
           python -m pip install --upgrade pip
           python -m pip install checkov
           curl -L https://github.com/open-policy-agent/conftest/releases/download/v0.63.0/conftest_0.63.0_Linux_x86_64.tar.gz | tar xz
           sudo mv conftest /usr/local/bin/conftest
+          sudo apt-get update && sudo apt-get install -y jq
 
       - name: Scan & Report
+        working-directory: .
         run: |
-          mkdir -p reports
           checkov -f reports/plan.json -o json --compact > reports/checkov.json || true
           checkov -f reports/plan.json -o cli | tee reports/checkov_cli.txt || true
           conftest test reports/plan.json --policy policy/conftest | tee reports/conftest.txt || true
           {
-            echo "# Compliance Report (CI)"
+            echo "# Compliance Report (Deploy)"
             echo
             echo "## Checkov Summary"
             ( jq -r '.summary | "Passed: \(.passed), Failed: \(.failed), Skipped: \(.skipped), ParsingErrors: \(.parsing_errors)"' reports/checkov.json \

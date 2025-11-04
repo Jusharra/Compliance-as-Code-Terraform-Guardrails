@@ -11,15 +11,16 @@ TAGS_JSON="${TAGS_JSON:-{\"Project\":\"Compliance-as-Code-Guardrails\"}}"
 command -v terraform >/dev/null || { echo "Terraform is required"; exit 1; }
 command -v aws >/dev/null || { echo "AWS CLI is required"; exit 1; }
 
-# Optional policy tools
-if command -v checkov >/dev/null; then HAS_CHECKOV=1; else HAS_CHECKOV=0; fi
-if command -v conftest >/dev/null; then HAS_CONFTEST=1; else HAS_CONFTEST=0; fi
 mkdir -p reports
+
+# Optional policy tools
+HAS_CHECKOV=0; command -v checkov >/dev/null && HAS_CHECKOV=1
+HAS_CONFTEST=0; command -v conftest >/dev/null && HAS_CONFTEST=1
 
 echo "🧹 terraform fmt"
 terraform -chdir="$TF_DIR" fmt -recursive
 
-echo "🔐 ensure AWS is authenticated"
+echo "🔐 validate AWS identity"
 aws sts get-caller-identity >/dev/null
 
 echo "📦 terraform init"
@@ -33,14 +34,14 @@ terraform -chdir="$TF_DIR" plan \
   -var="region=${REGION}" \
   -var="name_prefix=${NAME_PREFIX}" \
   -var="tags=${TAGS_JSON}" \
-  -out "${TF_DIR}/plan.out" \
+  -out "plan.out" \
   -input=false
 
 echo "🚀 terraform apply"
-terraform -chdir="$TF_DIR" apply -input=false -auto-approve "${TF_DIR}/plan.out"
+terraform -chdir="$TF_DIR" apply -input=false -auto-approve "plan.out"
 
-echo "📝 export plan JSON"
-terraform -chdir="$TF_DIR" show -json "${TF_DIR}/plan.out" > reports/plan.json
+echo "📝 export plan JSON to reports/"
+terraform -chdir="$TF_DIR" show -json "plan.out" > ./../reports/plan.json
 
 if [ "$HAS_CHECKOV" -eq 1 ]; then
   echo "🔎 Checkov"
@@ -63,7 +64,7 @@ echo "📄 Generate summary"
   echo
   if [ -f reports/checkov.json ]; then
     echo "## Checkov Summary"
-    jq -r '.summary | "Passed: \(.passed), Failed: \(.failed), Skipped: \(.skipped), ParsingErrors: \(.parsing_errors)"' reports/checkov.json
+    jq -r '.summary | "Passed: \(.passed), Failed: \(.failed), Skipped: \(.skipped), ParsingErrors: \(.parsing_errors)"' reports/checkov.json || echo "_No JSON output_"
     echo
   fi
   echo "## Conftest Findings"
