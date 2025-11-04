@@ -1,8 +1,8 @@
 package main
 
-# Fail if any IAM policy allows Action:"*" or Resource:"*"
-deny[msg] {
-  rc := resource_changes_by_type("aws_iam_policy")[_]
+# Disallow IAM policies that allow Action:"*"
+deny contains msg if {
+  rc := resource_changes_by_type["aws_iam_policy"][_]
   pol := after(rc)
   pol.policy != null
   parsed := json.unmarshal(pol.policy)
@@ -12,8 +12,9 @@ deny[msg] {
   msg := sprintf("AC-6: IAM policy %q allows Action \"*\"", [pol.name])
 }
 
-deny[msg] {
-  rc := resource_changes_by_type("aws_iam_policy")[_]
+# Disallow IAM policies that allow Resource:"*"
+deny contains msg if {
+  rc := resource_changes_by_type["aws_iam_policy"][_]
   pol := after(rc)
   pol.policy != null
   parsed := json.unmarshal(pol.policy)
@@ -22,5 +23,3 @@ deny[msg] {
   stmt.Resource == "*"
   msg := sprintf("AC-6: IAM policy %q allows Resource \"*\"", [pol.name])
 }
-
-

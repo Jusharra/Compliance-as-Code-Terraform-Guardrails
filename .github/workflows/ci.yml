@@ -32,7 +32,7 @@ jobs:
       - name: Configure AWS via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::281517525855:role/soc2-agent-LambdaRole-SaT6icEYluF9
+          role-to-assume: arn:aws:iam::281517525855:role/gh-oidc-deployer
           aws-region: us-east-1
 
       - name: Setup Terraform
