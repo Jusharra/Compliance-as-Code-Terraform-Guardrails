@@ -1,0 +1,19 @@
+# Terraform local cache & state
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfplan
+plan.out
+plan.json
+
+# Reports & local outputs
+reports/
+!.gitkeep
+
+# Allow the provider lock file to be tracked
+!terraform/.terraform.lock.hcl
+
+# Misc
+.DS_Store
+Thumbs.db
