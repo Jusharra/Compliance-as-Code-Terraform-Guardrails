@@ -43,7 +43,9 @@ jobs:
       - name: Terraform Init/Plan (export plan.json to reports/)
         run: |
           mkdir -p ../reports
-          # Use local backend in CI to avoid requiring access to the remote S3 state
+          # Ensure there is no previous backend state metadata
+          rm -rf .terraform
+          # Force local backend for CI plan generation
           terraform init -input=false -backend=false -reconfigure
           terraform validate
           terraform plan -input=false -out plan.out
