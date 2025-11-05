@@ -20,17 +20,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── OIDC: assume your existing role (NO static keys)
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}   # set this one secret only
-          aws-region: us-east-1
-          output-credentials: true
-
-      - name: Who am I?
-        run: aws sts get-caller-identity
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
