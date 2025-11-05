@@ -35,6 +35,10 @@ public_ipv6(ing) if {
   ing.ipv6_cidr_blocks[_] == "::/0"
 }
 
+# --- NEW: OR helper (two rule bodies) ---
+public_any(ing) if { public_ipv4(ing) }
+public_any(ing) if { public_ipv6(ing) }
+
 ############################
 # Inline ingress on aws_security_group
 ############################
@@ -42,11 +46,11 @@ public_ipv6(ing) if {
 deny contains msg if {
   rc := resource_changes_by_type("aws_security_group")[_]
   sg := after(rc)
-  sg.ingress                       # guard: has inline rules
+  sg.ingress
   ing := sg.ingress[_]
 
   sensitive_ingress(ing)
-  ( public_ipv4(ing) or public_ipv6(ing) )
+  public_any(ing)                          # <-- replaced (A or B)
 
   name := sg.name
   msg := sprintf("SC-7: Security Group %q has public ingress (SSH/RDP/all).", [name])
@@ -56,7 +60,6 @@ deny contains msg if {
 # Standalone aws_security_group_rule (type = ingress)
 ############################
 
-# Treat a rule object with same shape as 'ing' in helpers
 deny contains msg if {
   rc := resource_changes_by_type("aws_security_group_rule")[_]
   r := after(rc)
@@ -72,9 +75,8 @@ deny contains msg if {
   }
 
   sensitive_ingress(ing)
-  ( public_ipv4(ing) or public_ipv6(ing) )
+  public_any(ing)                          # <-- replaced (A or B)
 
-  # Best-effort name/context
   id := r.security_group_id
   msg := sprintf("SC-7: Security Group (id: %v) has public ingress rule (SSH/RDP/all).", [id])
 }
