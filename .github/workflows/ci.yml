@@ -36,15 +36,13 @@ jobs:
         with:
           terraform_version: 1.9.8
 
-      - name: Init (S3 backend)
-        env:
-          TF_IN_AUTOMATION: "1"
+      - name: Terraform Init/Plan (export plan.json to reports/)
         run: |
           mkdir -p ../reports
-          terraform init -input=false -reconfigure
-
-      - name: Validate & Plan
-        run: |
+          # Use local backend in CI to avoid requiring access to the remote S3 state
+          rm -rf .terraform
+          terraform init -input=false -backend=false -reconfigure
           terraform validate
-          terraform plan -input=false -out plan.out
+          # Do not refresh from cloud to avoid read permissions during planning
+          terraform plan -input=false -refresh=false -lock=false -out plan.out
           terraform show -json plan.out > ../reports/plan.json
