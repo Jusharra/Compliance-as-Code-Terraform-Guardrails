@@ -44,7 +44,7 @@ jobs:
         run: |
           mkdir -p ../reports
           # Use local backend in CI to avoid requiring access to the remote S3 state
-          terraform init -input=false -backend=false
+          terraform init -input=false -backend=false -reconfigure
           terraform validate
           terraform plan -input=false -out plan.out
           terraform show -json plan.out > ../reports/plan.json
