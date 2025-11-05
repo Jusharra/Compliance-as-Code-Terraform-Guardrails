@@ -11,3 +11,9 @@ provider "aws" {
   region = var.region
 }
 
+# Secondary provider for replication destination (us-west-2)
+provider "aws" {
+  alias  = "replica"
+  region = "us-west-2"
+}
+
