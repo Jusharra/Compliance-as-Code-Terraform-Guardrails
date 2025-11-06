@@ -28,12 +28,12 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "log_bucket" {
 }
 
 resource "aws_cloudtrail" "org_trail" {
-  s3_bucket_name             = aws_s3_bucket.log_bucket.id
+  s3_bucket_name             = "cac-demo-logs-8d5e3627"
   name           = "cac-demo-trail"
   include_global_service_events = true
   is_multi_region_trail      = true
   enable_log_file_validation = true
-  kms_key_id                 = aws_kms_key.log_kms.arn
+  kms_key_id                 = "arn:aws:kms:us-east-1:281517525855:key/8b6e6328-74fc-4ab1-aec8-ad5a68cde9be"
   tags                       = var.tags
 }
 
