@@ -38,6 +38,7 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
+        working-directory: ./terraform
         run: terraform plan -input=false -out=tfplan
 
       - name: Terraform Apply
