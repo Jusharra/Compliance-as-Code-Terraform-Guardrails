@@ -33,15 +33,22 @@ jobs:
 
       - name: Terraform Init
         run: terraform init -input=false -reconfigure
+        working-directory: ./terraform
+
 
       - name: Terraform Validate
         run: terraform validate
+        working-directory: ./terraform
+
 
       - name: Terraform Plan
-        working-directory: ./terraform
         run: terraform plan -input=false -out=tfplan
+        working-directory: ./terraform
+
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve tfplan
+        working-directory: ./terraform
+
 
