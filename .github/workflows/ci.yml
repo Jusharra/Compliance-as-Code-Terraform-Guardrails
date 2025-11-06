@@ -1,85 +1,46 @@
-name: Compliance-as-code Deploy
+name: Terraform CI/CD
 
 on:
   push:
     branches:
       - main
   pull_request:
-    branches:
-      - main
-  workflow_dispatch:
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  validate-and-plan:
-    name: Validate & Plan
+  terraform:
+    name: Terraform Validate & Deploy
     runs-on: ubuntu-latest
-    environment: production
+
     steps:
-      - name: Checkout
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS Credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::281517525855:role/gh-oidc-deployer
+          role-to-assume: arn:aws:iam::281517525855:role/gh-oidc-terraform-deployer
           aws-region: us-east-1
           audience: sts.amazonaws.com
-          output-env-credentials: true
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.7.4
+          terraform_version: 1.6.6
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -input=false -reconfigure
 
       - name: Terraform Validate
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan -out=plan.out
-
-      - name: Save Terraform Plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: tf-plan
-          path: plan.out
-
-  deploy:
-    name: Deploy
-    runs-on: ubuntu-latest
-    environment: production
-    needs: validate-and-plan
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::281517525855:role/gh-oidc-deployer
-          aws-region: us-east-1
-          audience: sts.amazonaws.com
-          output-env-credentials: true
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.7.4
-
-      - name: Terraform Init
-        run: terraform init
-
-      - name: Download Terraform Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tf-plan
-          path: .
+        run: terraform plan -input=false -out=tfplan
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve plan.out
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform apply -auto-approve tfplan
+
