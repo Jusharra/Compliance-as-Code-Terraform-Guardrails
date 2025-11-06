@@ -1,37 +1,85 @@
-name: CI (plan only)
+name: Compliance-as-code Deploy
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
-  id-token: write     # REQUIRED for OIDC
+  id-token: write
   contents: read
 
 jobs:
-  compliance:
+  validate-and-plan:
+    name: Validate & Plan
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: terraform   # all TF commands run inside /terraform
-
+    environment: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::281517525855:role/gh-oidc-deployer
+          aws-region: us-east-1
+          audience: sts.amazonaws.com
+          output-env-credentials: true
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.8
+          terraform_version: 1.7.4
 
-      - name: Terraform Init/Plan (export plan.json to reports/)
-        run: |
-          mkdir -p ../reports
-          # Use local backend in CI to avoid requiring access to the remote S3 state
-          rm -rf .terraform
-          terraform init -input=false -backend=false -reconfigure
-          terraform validate
-          # Do not refresh from cloud to avoid read permissions during planning
-          terraform plan -input=false -refresh=false -lock=false -out plan.out
-          terraform show -json plan.out > ../reports/plan.json
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -out=plan.out
+
+      - name: Save Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tf-plan
+          path: plan.out
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+    needs: validate-and-plan
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::281517525855:role/gh-oidc-deployer
+          aws-region: us-east-1
+          audience: sts.amazonaws.com
+          output-env-credentials: true
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.4
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tf-plan
+          path: .
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve plan.out

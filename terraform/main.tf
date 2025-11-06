@@ -199,8 +199,8 @@ resource "aws_s3_bucket_logging" "log_bucket" {
 }
 
 resource "aws_cloudtrail" "org_trail" {
-  name                          = "${var.name_prefix}-trail"
-  s3_bucket_name                = aws_s3_bucket.log_bucket.id
+  name           = "${var.name_prefix}-trail"
+  s3_bucket_name = aws_s3_bucket.log_bucket.id
   # Use a simple prefix to avoid InvalidS3PrefixException
   s3_key_prefix                 = "cloudtrail"
   include_global_service_events = true
@@ -211,7 +211,7 @@ resource "aws_cloudtrail" "org_trail" {
   # Integrate with CloudWatch Logs and SNS for notifications
   cloud_watch_logs_group_arn = "${aws_cloudwatch_log_group.trail.arn}:*"
   cloud_watch_logs_role_arn  = aws_iam_role.trail_to_cw.arn
-  sns_topic_name              = aws_sns_topic.cloudtrail_notifications.name
+  sns_topic_name             = aws_sns_topic.cloudtrail_notifications.name
 
   # If you also wire CloudWatch Logs, keep your existing role/log group
   # cloud_watch_logs_group_arn = "${aws_cloudwatch_log_group.trail.arn}:*"  # note :*
@@ -246,9 +246,9 @@ resource "aws_iam_role" "vpc_flow_to_cw" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
+      Effect    = "Allow",
       Principal = { Service = "vpc-flow-logs.amazonaws.com" },
-      Action   = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
   tags = var.tags
@@ -260,8 +260,8 @@ resource "aws_iam_role_policy" "vpc_flow_to_cw" {
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
-      Action = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogGroups", "logs:DescribeLogStreams"],
+      Effect   = "Allow",
+      Action   = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogGroups", "logs:DescribeLogStreams"],
       Resource = "${aws_cloudwatch_log_group.vpc_flow.arn}:*"
     }]
   })
@@ -270,11 +270,11 @@ resource "aws_iam_role_policy" "vpc_flow_to_cw" {
 resource "aws_flow_log" "vpc" {
   log_destination_type = "cloud-watch-logs"
   # Use destination ARN per deprecation of log_group_name
-  log_destination      = aws_cloudwatch_log_group.vpc_flow.arn
-  iam_role_arn         = aws_iam_role.vpc_flow_to_cw.arn
-  traffic_type         = "ALL"
-  vpc_id               = aws_vpc.main.id
-  tags                 = var.tags
+  log_destination = aws_cloudwatch_log_group.vpc_flow.arn
+  iam_role_arn    = aws_iam_role.vpc_flow_to_cw.arn
+  traffic_type    = "ALL"
+  vpc_id          = aws_vpc.main.id
+  tags            = var.tags
 }
 
 # CloudTrail -> CloudWatch logs + SNS
@@ -289,9 +289,9 @@ resource "aws_iam_role" "trail_to_cw" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
+      Effect    = "Allow",
       Principal = { Service = "cloudtrail.amazonaws.com" },
-      Action   = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
   tags = var.tags
@@ -303,8 +303,8 @@ resource "aws_iam_role_policy" "trail_to_cw" {
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
-      Action = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogGroups", "logs:DescribeLogStreams"],
+      Effect   = "Allow",
+      Action   = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogGroups", "logs:DescribeLogStreams"],
       Resource = "${aws_cloudwatch_log_group.trail.arn}:*"
     }]
   })
@@ -323,8 +323,8 @@ resource "aws_sns_topic" "s3_events" {
 
 data "aws_iam_policy_document" "s3_events_topic" {
   statement {
-    effect    = "Allow"
-    actions   = ["SNS:Publish"]
+    effect  = "Allow"
+    actions = ["SNS:Publish"]
     principals {
       type        = "Service"
       identifiers = ["s3.amazonaws.com"]
@@ -338,7 +338,7 @@ data "aws_iam_policy_document" "s3_events_topic" {
     condition {
       test     = "ArnLike"
       variable = "aws:SourceArn"
-      values   = [
+      values = [
         "arn:aws:s3:::${aws_s3_bucket.log_bucket.id}",
         "arn:aws:s3:::${aws_s3_bucket.access_logs_target.id}"
       ]
@@ -375,11 +375,11 @@ resource "aws_s3_bucket_notification" "access_logs_target" {
 
 # Destination KMS key in replica region
 resource "aws_kms_key" "replica_kms" {
-  provider                 = aws.replica
-  description              = "KMS key for replica log bucket encryption"
-  deletion_window_in_days  = 7
-  enable_key_rotation      = true
-  tags                     = var.tags
+  provider                = aws.replica
+  description             = "KMS key for replica log bucket encryption"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+  tags                    = var.tags
 }
 
 # Destination buckets in replica region
@@ -469,9 +469,9 @@ resource "aws_iam_role" "s3_replication" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
+      Effect    = "Allow",
       Principal = { Service = "s3.amazonaws.com" },
-      Action   = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
   tags = var.tags
@@ -585,8 +585,8 @@ resource "aws_s3_bucket_replication_configuration" "access_logs_target" {
     }
 
     destination {
-      bucket             = aws_s3_bucket.access_logs_target_replica.arn
-      storage_class      = "STANDARD"
+      bucket        = aws_s3_bucket.access_logs_target_replica.arn
+      storage_class = "STANDARD"
       encryption_configuration {
         replica_kms_key_id = aws_kms_key.replica_kms.arn
       }
