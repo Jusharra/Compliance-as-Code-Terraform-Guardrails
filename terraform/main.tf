@@ -28,8 +28,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "log_bucket" {
 }
 
 resource "aws_cloudtrail" "org_trail" {
-  name                       = "${var.name_prefix}-trail"
   s3_bucket_name             = aws_s3_bucket.log_bucket.id
+  name           = "cac-demo-trail"
   include_global_service_events = true
   is_multi_region_trail      = true
   enable_log_file_validation = true
