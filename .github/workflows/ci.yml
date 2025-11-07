@@ -5,6 +5,10 @@ on:
     branches:
       - main
   pull_request:
+    paths:
+      - "terraform/**"
+      - "policy/**"
+      - ".github/workflows/**"
 
 permissions:
   id-token: write
@@ -59,4 +63,26 @@ jobs:
         run: terraform apply -auto-approve tfplan
         working-directory: ./terraform
 
+      - name: Export plan.json -> reports/
+        run: |
+          mkdir -p reports
+          terraform -chdir=terraform show -json tfplan.binary > reports/plan.json
+
+      - name: Install Checkov
+        run: pipx install checkov
+
+      # Scan Terraform code (static) — flags the bad SG
+      - name: Checkov (terraform files)
+        run: |
+          checkov -d terraform \
+            --download-external-modules true \
+            --quiet | tee reports/checkov_cli.txt
+          # also save machine-readable JSON
+          checkov -d terraform -o json > reports/checkov.json
+
+      # Scan the Terraform plan (runtime intent) — belts & suspenders
+      - name: Checkov (terraform_plan)
+        run: |
+          checkov -f reports/plan.json --framework terraform_plan \
+            --quiet | tee -a reports/checkov_cli.txt
 
