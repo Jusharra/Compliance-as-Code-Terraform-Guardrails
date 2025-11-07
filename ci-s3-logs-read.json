@@ -1,0 +1,26 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "BucketLevelReadsForTerraformRefresh",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetBucketAcl",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketPolicyStatus",
+        "s3:GetBucketLocation",
+        "s3:GetBucketTagging",
+        "s3:GetBucketVersioning",
+        "s3:GetBucketWebsite",
+        "s3:GetEncryptionConfiguration",
+        "s3:GetLifecycleConfiguration",
+        "s3:GetPublicAccessBlock",
+        "s3:GetReplicationConfiguration",
+        "s3:GetBucketLogging",
+        "s3:GetBucketOwnershipControls"
+      ],
+      "Resource": "arn:aws:s3:::cac-demo-logs-8d5e3627"
+    }
+  ]
+}
