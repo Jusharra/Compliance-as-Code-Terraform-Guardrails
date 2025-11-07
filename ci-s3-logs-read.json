@@ -6,20 +6,13 @@
       "Effect": "Allow",
       "Action": [
         "s3:ListBucket",
-        "s3:GetBucketAcl",
-        "s3:GetBucketPolicy",
-        "s3:GetBucketPolicyStatus",
-        "s3:GetBucketLocation",
-        "s3:GetBucketTagging",
-        "s3:GetBucketVersioning",
-        "s3:GetBucketWebsite",
+        "s3:GetBucket*",
         "s3:GetEncryptionConfiguration",
-        "s3:GetLifecycleConfiguration",
+        "s3:GetAccelerateConfiguration",
         "s3:GetPublicAccessBlock",
-        "s3:GetReplicationConfiguration",
-        "s3:GetBucketLogging",
         "s3:GetBucketOwnershipControls",
-        "s3:GetAccelerateConfiguration"
+        "s3:GetBucketLogging",
+        "s3:GetBucketPolicyStatus"
       ],
       "Resource": "arn:aws:s3:::cac-demo-logs-8d5e3627"
     }
