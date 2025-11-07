@@ -2,8 +2,7 @@ name: Terraform CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
     paths:
       - "terraform/**"
@@ -15,120 +14,110 @@ permissions:
   contents: read
 
 jobs:
-  # Runs on BOTH pull_request and push (main)
+  # 1) Always run static guardrail (code-only) on PRs and pushes
   guardrail_static:
     name: Guardrail — Static Checkov
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-
-      - name: Install Checkov
-        run: pip install --upgrade checkov
-
-      # Keep demo focused on SG violations
+      - run: pip install --upgrade checkov
       - name: Checkov (Terraform code)
         run: |
           checkov -d terraform \
             --check CKV_AWS_24,CKV_AWS_23,CKV_AWS_382,CKV2_AWS_5 \
             --quiet
 
-  terraform:
-    name: Terraform Validate & Deploy
+  # 2) Always produce plan + your two reports (even if guardrail fails)
+  plan_reports:
+    name: Plan → Checkov CLI + Conftest (artifacts)
     runs-on: ubuntu-latest
-    # Only run on push — and ONLY if guardrail passed
-    if: github.event_name == 'push' && needs.guardrail_static.result == 'success'
-    needs: [guardrail_static]
-
+    needs: guardrail_static
+    if: always()
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::281517525855:role/gh-oidc-terraform-deployer
           aws-region: us-east-1
           audience: sts.amazonaws.com
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
       - name: Terraform Init
+        working-directory: ./terraform
         run: terraform init -input=false -reconfigure
+
+      - name: Terraform Plan (no apply)
         working-directory: ./terraform
-
-      - name: Terraform Validate
-        run: terraform validate
-        working-directory: ./terraform
-
-      - name: Who am I?
-        run: aws sts get-caller-identity
-
-      - name: S3 getters sanity (expect no AccessDenied)
-        run: |
-          set -e
-          aws s3api get-bucket-accelerate-configuration --bucket cac-demo-logs-8d5e3627 || true
-          aws s3api get-bucket-website --bucket cac-demo-logs-8d5e3627 || true
-          aws s3api get-bucket-encryption --bucket cac-demo-logs-8d5e3627 || true
-
-      - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
-        working-directory: ./terraform
 
-      - name: Terraform Apply
-        if: github.ref == 'refs/heads/main'
-        run: terraform apply -auto-approve tfplan
-        working-directory: ./terraform
-
-            # make a place for artifacts
       - name: Prepare reports dir
         run: mkdir -p reports
 
-      # render machine-readable plan
       - name: Render plan.json
-        run: terraform show -json tfplan > ../reports/plan.json
         working-directory: ./terraform
+        run: terraform show -json tfplan > ../reports/plan.json
 
-      # tools for checks
-      - name: Setup Python (for Checkov)
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-
-      - name: Install Checkov
-        run: pip install --upgrade checkov
+      - run: pip install --upgrade checkov
 
       - name: Install Conftest
         run: |
-          set -e
           VER=0.52.0
           curl -L -o conftest.tgz https://github.com/open-policy-agent/conftest/releases/download/v${VER}/conftest_${VER}_Linux_x86_64.tar.gz
           tar -xzf conftest.tgz
           sudo mv conftest /usr/local/bin/
           conftest --version
 
-      # your exact commands, verbatim, with tee
       - name: Checkov (plan.json)
         run: checkov -f reports/plan.json -o cli --external-checks-dir policy/checkov | tee reports/checkov_cli.txt
 
       - name: Conftest (plan.json)
         run: conftest test reports/plan.json --policy policy/conftest | tee reports/conftest.txt
 
-      # persist results in the run
-      - name: Upload compliance artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: compliance-reports
           path: |
             reports/plan.json
             reports/checkov_cli.txt
             reports/conftest.txt
-  
+
+  # 3) Only apply on main pushes IF guardrail passed
+  terraform_apply:
+    name: Terraform Validate & Deploy
+    runs-on: ubuntu-latest
+    needs: guardrail_static
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.guardrail_static.result == 'success'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::281517525855:role/gh-oidc-terraform-deployer
+          aws-region: us-east-1
+          audience: sts.amazonaws.com
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init -input=false -reconfigure
+
+      - name: Terraform Validate
+        working-directory: ./terraform
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: ./terraform
+        run: terraform plan -input=false -out=tfplan
+
+      - name: Terraform Apply (main only)
+        working-directory: ./terraform
+        run: terraform apply -auto-approve tfplan
