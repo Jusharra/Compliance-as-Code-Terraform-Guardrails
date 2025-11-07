@@ -18,7 +18,8 @@
         "s3:GetPublicAccessBlock",
         "s3:GetReplicationConfiguration",
         "s3:GetBucketLogging",
-        "s3:GetBucketOwnershipControls"
+        "s3:GetBucketOwnershipControls",
+        "s3:GetAccelerateConfiguration"
       ],
       "Resource": "arn:aws:s3:::cac-demo-logs-8d5e3627"
     }
