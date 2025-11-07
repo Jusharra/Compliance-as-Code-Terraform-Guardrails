@@ -15,9 +15,35 @@ permissions:
   contents: read
 
 jobs:
+  # ✅ PR job: run static guardrails only (no AWS, no OIDC)
+  guardrail_pr:
+    name: Guardrail (PR) — Static Checkov
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Checkov
+        run: pip install --upgrade checkov
+
+      # Keep the demo focused on SG violations
+      - name: Checkov (Terraform code)
+        run: |
+          checkov -d terraform \
+            --check CKV_AWS_24,CKV_AWS_23,CKV_AWS_382,CKV2_AWS_5 \
+            --quiet
+
+  # ✅ Push job: do your OIDC + Terraform as-is (no changes to steps)
   terraform:
     name: Terraform Validate & Deploy
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'   # <— only run on push, not on PR
 
     steps:
       - name: Checkout Repo
@@ -39,7 +65,6 @@ jobs:
         run: terraform init -input=false -reconfigure
         working-directory: ./terraform
 
-
       - name: Terraform Validate
         run: terraform validate
         working-directory: ./terraform
@@ -53,10 +78,10 @@ jobs:
           aws s3api get-bucket-accelerate-configuration --bucket cac-demo-logs-8d5e3627 || true
           aws s3api get-bucket-website --bucket cac-demo-logs-8d5e3627 || true
           aws s3api get-bucket-encryption --bucket cac-demo-logs-8d5e3627 || true
+
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
         working-directory: ./terraform
-
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
