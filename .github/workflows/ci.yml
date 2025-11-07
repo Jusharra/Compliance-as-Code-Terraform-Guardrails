@@ -40,7 +40,15 @@ jobs:
         run: terraform validate
         working-directory: ./terraform
 
+      - name: Who am I?
+        run: aws sts get-caller-identity
 
+      - name: S3 getters sanity (expect no AccessDenied)
+        run: |
+          set -e
+          aws s3api get-bucket-accelerate-configuration --bucket cac-demo-logs-8d5e3627 || true
+          aws s3api get-bucket-website --bucket cac-demo-logs-8d5e3627 || true
+          aws s3api get-bucket-encryption --bucket cac-demo-logs-8d5e3627 || true
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
         working-directory: ./terraform
