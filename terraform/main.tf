@@ -72,7 +72,7 @@ resource "aws_security_group" "bad_sg" {
   name   = "${var.name_prefix}-bad-sg"
   vpc_id = aws_vpc.main.id
 
-  # 🚫 Public SSH
+  # ❌ Public SSH
   ingress {
     from_port   = 22
     to_port     = 22
@@ -80,8 +80,8 @@ resource "aws_security_group" "bad_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # (egress open — many orgs allow, but we’ll focus guardrail on ingress)
-  egress  {
+  # Wide-open egress (fine for the demo)
+  egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -90,4 +90,5 @@ resource "aws_security_group" "bad_sg" {
 
   tags = var.tags
 }
+
 
