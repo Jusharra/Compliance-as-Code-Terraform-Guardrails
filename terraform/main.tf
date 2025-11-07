@@ -67,3 +67,27 @@ resource "aws_iam_role_policy_attachment" "attach" {
   policy_arn = aws_iam_policy.workload_policy.arn
 }
 
+# terraform/main.tf (add this block)
+resource "aws_security_group" "bad_sg" {
+  name   = "${var.name_prefix}-bad-sg"
+  vpc_id = aws_vpc.main.id
+
+  # 🚫 Public SSH
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # (egress open — many orgs allow, but we’ll focus guardrail on ingress)
+  egress  {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = var.tags
+}
+
