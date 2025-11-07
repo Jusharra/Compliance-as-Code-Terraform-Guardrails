@@ -87,3 +87,48 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: terraform apply -auto-approve tfplan
         working-directory: ./terraform
+
+            # make a place for artifacts
+      - name: Prepare reports dir
+        run: mkdir -p reports
+
+      # render machine-readable plan
+      - name: Render plan.json
+        run: terraform show -json tfplan > ../reports/plan.json
+        working-directory: ./terraform
+
+      # tools for checks
+      - name: Setup Python (for Checkov)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Checkov
+        run: pip install --upgrade checkov
+
+      - name: Install Conftest
+        run: |
+          set -e
+          VER=0.52.0
+          curl -L -o conftest.tgz https://github.com/open-policy-agent/conftest/releases/download/v${VER}/conftest_${VER}_Linux_x86_64.tar.gz
+          tar -xzf conftest.tgz
+          sudo mv conftest /usr/local/bin/
+          conftest --version
+
+      # your exact commands, verbatim, with tee
+      - name: Checkov (plan.json)
+        run: checkov -f reports/plan.json -o cli --external-checks-dir policy/checkov | tee reports/checkov_cli.txt
+
+      - name: Conftest (plan.json)
+        run: conftest test reports/plan.json --policy policy/conftest | tee reports/conftest.txt
+
+      # persist results in the run
+      - name: Upload compliance artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-reports
+          path: |
+            reports/plan.json
+            reports/checkov_cli.txt
+            reports/conftest.txt
+  
